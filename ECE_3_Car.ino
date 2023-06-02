@@ -18,9 +18,9 @@ int previousSecondarySpeed = 0;
 boolean didDoughnut = false;
 boolean secondTurnCheck = false;
 int previousError = 0;
-int numVars = 4;
+int numVars = 8;
 int numDataPoints = 1500;
-int VariableStore[1500][4];
+int VariableStore[1500][8];
 int rightSpeed = 0;
 int leftSpeed = 0;
 int loopCount = 0;
@@ -98,7 +98,7 @@ void doDoughnut(int initialLeft, int initialRight)
   digitalWrite(left_dir_pin, HIGH);
   int getL = 0;
   int getR = 0;
-  int turnSpeed = 80;
+  int turnSpeed = 150;
   while(getR+getL < 700)
   {
     analogWrite(right_pwm_pin, turnSpeed);
@@ -247,22 +247,34 @@ void loop()
 
     getL = getEncoderCount_left();
     getR = getEncoderCount_right();
-    if (getL+getR > 9000 && !didDoughnut) //turnarounds
+    if (getL+getR > 9200 && !didDoughnut) //turnarounds
     {
       ChangeBaseSpeeds(leftSpeed, 20, rightSpeed, 20); 
       baseSpeed = 20;
     }
-    else if (getL+getR > 8000 && !didDoughnut) //gap
+    else if (getL+getR > 8000 && !didDoughnut) //after gap 
     {
-      baseSpeed = 20;
+//      while(true)
+//      {//infinite loop
+//        
+//      }
+      ChangeBaseSpeeds(leftSpeed, 40, rightSpeed, 40); 
     }
-//    else if (getL+getR > 3800 && getL+getR < 8000) //straightaways
-//    {
-////      ChangeBaseSpeeds(leftSpeed, 90, rightSpeed, 90); 
-//      //Kp = 0.03;
-////      Kd = 0.25;
+    else if (getL+getR > 7040 && !didDoughnut) //slow down at start of gap
+    {
+//      for (int i = 0; i<8; i++)  
+//      ChangeBaseSpeeds(leftSpeed, 20, rightSpeed, 20); 
+//      baseSpeed = 20;
+//      Kp = 0.02;
+//      Kd = 0.10;
+    }
+    else if (getL+getR > 3800) //straightaways
+    {
+//      ChangeBaseSpeeds(leftSpeed, 90, rightSpeed, 90); 
+      Kp = 0.02;
+//      Kd = 0.25;
 //      baseSpeed = 60;
-//    }
+    }
 //    
 //      for (int i = 0; i < 8; i++)
 //      {
