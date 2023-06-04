@@ -254,35 +254,17 @@ void loop()
     }
     else if (getL+getR > 8000 && !didDoughnut) //after gap 
     {
-//      while(true)
-//      {//infinite loop
-//        
-//      }
       ChangeBaseSpeeds(leftSpeed, 40, rightSpeed, 40); 
     }
-    else if (getL+getR > 7040 && !didDoughnut) //slow down at start of gap
+    else if (getL+getR > 7040 && !didDoughnut) //start of gap
     {
-//      for (int i = 0; i<8; i++)  
-//      ChangeBaseSpeeds(leftSpeed, 20, rightSpeed, 20); 
-//      baseSpeed = 20;
-//      Kp = 0.02;
-//      Kd = 0.10;
+      Kd = 0.1;
     }
     else if (getL+getR > 3800) //straightaways
     {
-//      ChangeBaseSpeeds(leftSpeed, 90, rightSpeed, 90); 
-      Kp = 0.02;
-//      Kd = 0.25;
-//      baseSpeed = 60;
+       Kp = 0.02;
     }
-//    
-//      for (int i = 0; i < 8; i++)
-//      {
-//        Serial.print(sensorValues[i]);
-//        Serial.print("\t");
-//      }
-//      Serial.println();
-
+    
 //    check if at end of 1st pass
     if(turnaround() && !didDoughnut)// && secondTurnCheck
     {
