@@ -18,6 +18,7 @@ int previousSecondarySpeed = 0;
 
 boolean didDoughnut = false;
 boolean secondTurnCheck = false;
+
 boolean rightHasSeenBlack = false;
 boolean rightHasSeenWhite = false;
 
@@ -309,19 +310,6 @@ void setup()
 
 void loop()
 {
-//  float Kp = 0.025;
-//    float Kd = 0.353;
-//    int baseSpeed = 80;
-
-//pritam's values
-//  float Kp = 0.01;
-//    float Kd = 0.08;
-//    int baseSpeed = 60;
-
-//    float Kp = 0.01;
-//    float Kd = 0.08;
-//    int baseSpeed = 80;
-
     float Kp = 0.04;
     float Kd = 0.16;
     int baseSpeed = 40;
@@ -365,16 +353,21 @@ void loop()
       }
       else if (getL+getR > 7250) //start of gap
       {
-        ChangeBaseSpeeds(leftSpeed, 40, rightSpeed, 40); 
+//        ChangeBaseSpeeds(leftSpeed, 40, rightSpeed, 40); 
         Kd = 0.1;
         digitalWrite(LED_Yellow, HIGH);
         digitalWrite(LED_Red, LOW);
         preGap = true;
       }
+//      else if (getL+getR > 6800)
+//      {
+//        baseSpeed = 20;
+//        ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+//      }
       else if (getL+getR > 3800) //straightaways
       {
-         baseSpeed = 50;
-         ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+//         baseSpeed = 50;
+//         ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
          Kp = 0.01;
          Kd = 0.005;
       }

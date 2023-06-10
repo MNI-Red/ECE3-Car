@@ -10,6 +10,7 @@ const int right_dir_pin = 30;
 const int right_pwm_pin = 39;
 const int LED_Yellow = 41;
 const int LED_Red = 57;
+const int LED_YellowFront = 51;
 const int PUSHTAB = 27;
 
 int previousPrimarySpeed = 0;
@@ -18,6 +19,10 @@ int previousSecondarySpeed = 0;
 
 boolean didDoughnut = false;
 boolean secondTurnCheck = false;
+
+boolean rightHasSeenBlack = false;
+boolean rightHasSeenWhite = false;
+
 int previousError = 0;
 int numVars = 8;
 int numDataPoints = 1500;
@@ -99,8 +104,8 @@ void doDoughnut(int initialLeft, int initialRight)
   digitalWrite(left_dir_pin, HIGH);
   int getL = 0;
   int getR = 0;
-  int turnSpeed = 150;
-  while(getR+getL < 700)
+  int turnSpeed = 200;
+  while(getR+getL < 650) //700
   {
     analogWrite(right_pwm_pin, turnSpeed);
     analogWrite(left_pwm_pin, turnSpeed);
@@ -199,6 +204,7 @@ int getFusionNumber()
   return error / divisor;
 }
 
+
 int getPreGapFusionNumber()
 {
   //read in sensor values
@@ -272,6 +278,31 @@ int getDisabledOutterFusionNumber()
   return error / divisor;
 }
 
+
+int getStraightFusionNumber()
+{
+  //read in sensor values
+  //from spreadsheet
+  int minima[8] = {673, 580, 597, 597, 620, 621, 597, 713};
+//  673  580 597 597 620 621 597 713
+  int maxima[8] = {1827, 1921, 1903, 1903, 1880, 1879, 1903, 1787};
+//  1827  1921  1903  1903  1880  1879  1903  1787
+  
+  int error = 0;
+  int error_weight[8] = {-1, -2, -8, -4, 4, 8, 2, 1};
+  int divisor = 4;
+  //apply to sensor values
+  for (int i = 0; i < 8; i++)
+  {
+    int mi = sensorValues[i]-minima[i];
+    int maxTimesThousand = 1000 * mi / maxima[i];
+    error = error + error_weight[i] * maxTimesThousand;
+
+  }
+  
+  return error / divisor;
+}
+
 void setup()
 {
   ECE3_Init();
@@ -287,12 +318,13 @@ void setup()
   pinMode(right_dir_pin, OUTPUT);
   pinMode(right_pwm_pin, OUTPUT);
 
-  pinMode(LED_Yellow, OUTPUT);
-  pinMode(LED_Red, OUTPUT);
-
   digitalWrite(right_dir_pin, LOW);
   digitalWrite(right_nslp_pin, HIGH);
 
+  pinMode(LED_YellowFront, OUTPUT);
+
+  pinMode(LED_Yellow, OUTPUT);
+  pinMode(LED_Red, OUTPUT);
 
    resetEncoderCount_left();
    resetEncoderCount_right();
@@ -304,66 +336,206 @@ void setup()
 
 void loop()
 {
-//  float Kp = 0.025;
-//    float Kd = 0.353;
-//    int baseSpeed = 80;
+    //float Kp = 0.045;
+    //float Kd = 0.07;
+    float Kp = 0.045;
+    float Kd = 0.07;
+    int baseSpeed = 55;
 
-//pritam's values
-//  float Kp = 0.01;
-//    float Kd = 0.08;
-//    int baseSpeed = 60;
-
-//    float Kp = 0.01;
-//    float Kd = 0.08;
-//    int baseSpeed = 80;
-
-    float Kp = 0.04;
-    float Kd = 0.16;
-    int baseSpeed = 40;
-    
+//    float Kp = 0.06;
+//    float Kd = 0.10;
+//    int baseSpeed = 75;
     ECE3_read_IR(sensorValues);
-
-
+    
     boolean preGap = false;
     boolean postGap = false;
     boolean afterBars = false;
+    boolean straightPortion = false;
+    
     getL = getEncoderCount_left();
     getR = getEncoderCount_right();
-
-    if (!didDoughnut)
+   
+    if(!didDoughnut)
     {
-      if (getL+getR > 2200) //turnarounds
+      if (getL+getR > 9200)
       {
-        ChangeBaseSpeeds(leftSpeed, 20, rightSpeed, 20); 
-        baseSpeed = 20;
+        Kp = 0.001;
+        Kd = 0; //0.001
+        baseSpeed = 70;
+        ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+      }
+      else if (getL+getR > 9150) //turnarounds
+      {
+        Kp = 0.001;
+        Kd = 0; //0.001
+        baseSpeed = 70;
+        ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed);  
+      }
+      else if (getL+getR > 8200) //after gap 
+      {
+//        baseSpeed = 70;
+        ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed);
         digitalWrite(LED_Yellow, LOW);
         digitalWrite(LED_Red, LOW);
       }
-      else if (getL+getR > 1100)
+      else if (getL + getR > 8000) //midgap
       {
+        baseSpeed = 35;
         digitalWrite(LED_Yellow, HIGH);
         digitalWrite(LED_Red, HIGH);
+        digitalWrite(LED_YellowFront, LOW);
+        Kp = 0.04;
+//        Kd = ;
         afterBars = true;
       }
-      else if (getL+getR > 700) //after gap 
+      else if (getL+getR > 7450 && rightHasSeenBlack)//after gap //old val 7400
       {
-  //      ChangeBaseSpeeds(leftSpeed, 40, rightSpeed, 40); 
+        baseSpeed = 35;
         digitalWrite(LED_Red, HIGH);
         digitalWrite(LED_Yellow, LOW);
+        Kp = 0.02;
+        Kd = 0.02;
         postGap = true;
+
+        if (sensorValues[3] > 1700 || sensorValues[4] > 1700)
+        {
+          digitalWrite(LED_YellowFront, HIGH);
+          postGap = false;
+          afterBars = true;
+        }
+        else
+        {
+          digitalWrite(LED_YellowFront, LOW);
+        }
       }
-      else if (getL+getR > 500) //start of gap
+      else if (getL+getR > 7000) //start of gap
       {
+        baseSpeed = 35;
         Kd = 0.1;
         digitalWrite(LED_Yellow, HIGH);
         digitalWrite(LED_Red, LOW);
         preGap = true;
       }
+      else if (getL+getR > 6800) //start of gap
+      {
+        baseSpeed = 35;
+        ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+      }
+      else if (getL+getR > 4200)
+      {
+        baseSpeed = 120;
+        Kp = 0.01;
+        Kd = 0.095;
+//           Kp = 0.05;
+//         Kd = 0.55;
+      }
+      else if (getL+getR > 4100) //straightaways
+      {
+         baseSpeed = 120;
+         ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+         Kp = 0.01;
+         Kd = 0.095;
+      }
+      else if (getL+getR > 3700)
+      {
+        baseSpeed = 45;
+        Kp = 0.02;
+        Kd = 0.02;
+      }
+      else if (getL+getR > 3600)
+      {
+        baseSpeed = 45;
+        Kp = 0.02;
+        Kd = 0.02;
+        ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+      }
     }
-//    else if (getL+getR > 3800) //straightaways
-//    {
-//       Kp = 0.02;
-//    }
+    else
+    {
+      if (getL+getR > 8800)
+      {
+//        baseSpeed = 70;
+      }
+      else if (getL+getR > 8700)
+      {
+//         baseSpeed = 70;
+//         ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+           digitalWrite(LED_YellowFront, HIGH);
+      }
+      else if (getL+getR > 5200)
+      {
+//        baseSpeed = 65;
+      }
+      else if (getL+getR > 5100)
+      {
+//         baseSpeed = 65;
+//         ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+      }
+      else if (getL+getR > 3300)
+      {
+//        baseSpeed = 100;
+//        Kp = 0.02;
+//        Kd = 0.055;
+       baseSpeed = 120;
+         Kp = 0.01;
+         Kd = 0.095;
+      }
+      else if (getL+getR > 3200) //back to straight
+      {
+         baseSpeed = 120;
+         ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+         Kp = 0.01;
+         Kd = 0.095;
+      }
+      else if (getL+getR > 3000)
+      {
+//         Kp = 0.02;
+//         Kd = 0.005;
+         digitalWrite(LED_Red, LOW);
+      }
+      else if (getL+getR > 1600)
+      {
+         Kp = 0.02;
+        Kd = 0.001;
+      }
+      else if (getL + getR > 1500)
+      {
+         Kp = 0.02;
+        Kd = 0.001;
+        digitalWrite(LED_YellowFront, LOW);
+        digitalWrite(LED_Red, HIGH);
+//        ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed); 
+      }
+      else if (getL+getR > 600)
+      {
+//        Kp = 0.02;
+//        Kd = 0.001;
+//        ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed);
+      }
+      else if (getL+getR > 200)
+      {
+//        baseSpeed = 80;
+//        Kp = 0.02;
+//        Kd = 0.001;
+          
+      }
+      else
+      {
+//        baseSpeed = 80;
+//        Kp = 0.03;
+//        Kd = 0.001;
+        ChangeBaseSpeeds(leftSpeed, baseSpeed, rightSpeed, baseSpeed);
+          digitalWrite(LED_YellowFront, HIGH);
+      }
+    }
+
+    if (preGap)
+    {
+      if (sensorValues[0] > 2000)// || sensorValues[1] > 2000)
+      {
+        rightHasSeenBlack = true;
+      }
+    }
     
 //    check if at end of 1st pass
     if(turnaround() && !didDoughnut)// && secondTurnCheck
@@ -393,10 +565,15 @@ void loop()
     {
       error = getDisabledOutterFusionNumber();
     }
+    else if (straightPortion)
+    {
+      error = getStraightFusionNumber();
+    }
     else
     {
       error = getFusionNumber();
     }
+    
     
     int diffError = error - previousError; 
     
@@ -418,25 +595,5 @@ void loop()
     analogWrite(right_pwm_pin, rightSpeed);
     analogWrite(left_pwm_pin, leftSpeed);
     previousError = error;
-//        if(loopCount < numDataPoints)
-//    {
-//      VariableStore[loopCount][0] = error;
-//      VariableStore[loopCount][1] = correctionSignal;
-//      VariableStore[loopCount][2] = rightSpeed;
-//      VariableStore[loopCount][0] = leftSpeed;
-//    }
-//    loopCount++;
-         
-//        Serial.print(error);
-//        Serial.print("\t");
-//        Serial.print(diffError);
-//        Serial.print("\t");
-//        Serial.print(correctionSignal);
-//        Serial.print("\t");
-//        Serial.print(leftSpeed);
-//        Serial.print("\t");
-//        Serial.println(rightSpeed);
-//         Serial.println();
-//      delay(100);
 
 }
